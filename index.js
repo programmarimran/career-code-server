@@ -23,51 +23,75 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
     const jobsCollection = client.db("careerCodeDB").collection("jobs");
-    const applicationsCollection=client.db("careerCodeDB").collection("applications")
-
+    const applicationsCollection = client
+      .db("careerCodeDB")
+      .collection("applications");
 
     //jobs api
     app.get("/jobs", async (req, res) => {
-      const cursor = jobsCollection.find();
+      const email = req.query.email;
+      const query = {};
+      if (email) {
+       query.hr_email =email;
+      }
+      const cursor = jobsCollection.find(query);
       const result = await cursor.toArray();
+
       res.send(result);
     });
-    app.get("/jobs/:id",async(req,res)=>{
-      const id=req.params.id;
-      const query={_id:new ObjectId(id)}
-      const result=await jobsCollection.findOne(query)
-      res.send(result)
-    })
+    // //could not show the bad idea
+    // app.get("/jobsByEmailAddress",async(req,res)=>{
+    //   const email=req.query.email;
+    //   const query={hr_email:email}
+    //   const result=await jobsCollection.find(query).toArray()
+    //   res.send(result)
+    // })
+    app.get("/jobs/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await jobsCollection.findOne(query);
+      res.send(result);
+    });
+    app.post("/jobs", async (req, res) => {
+      const cursor = req.body;
+      const result = await jobsCollection.insertOne(cursor);
+      res.send(result);
+    });
     //Applicaions Api
-    app.post("/applications",async(req,res)=>{
-      const doc=req.body;
-      const result=await applicationsCollection.insertOne(doc)
-      res.send(result)
-    })
-    app.get("/applications",async(req,res)=>{
-      const email=req.query.email;
-      const query={
-        applicant:email
-      }
-      const cursor=applicationsCollection.find(query)
-      const result= await cursor.toArray()
+    app.post("/applications", async (req, res) => {
+      const doc = req.body;
+      const result = await applicationsCollection.insertOne(doc);
+      res.send(result);
+    });
+    app.get("/applications", async (req, res) => {
+      const email = req.query.email;
+      const query = {
+        applicant: email,
+      };
+      const cursor = applicationsCollection.find(query);
+      const result = await cursor.toArray();
 
-      for(const application of result){
-        const jobId=application.jobId
-        const jobQuery={_id:new ObjectId(jobId)}
-        const job=await jobsCollection.findOne(jobQuery)
-        application.company=job.company;
-        application.company_logo=job.company_logo
-
+      for (const application of result) {
+        const jobId = application.jobId;
+        const jobQuery = { _id: new ObjectId(jobId) };
+        const job = await jobsCollection.findOne(jobQuery);
+        application.company = job.company;
+        application.company_logo = job.company_logo;
       }
+      res.send(result);
+    });
+    app.get("/applications/job/:job_id",async(req,res)=>{
+      const job_id=req.params.job_id;
+      const query={jobId:job_id}
+      const result=await applicationsCollection.find(query).toArray()
       res.send(result)
     })
-    app.delete("/applications/:id",async(req,res)=>{
-      const id=req.params.id;
-      const query={_id:new ObjectId(id)}
-      const result=await applicationsCollection.deleteOne(query)
-      res.send(result)
-    })
+    app.delete("/applications/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await applicationsCollection.deleteOne(query);
+      res.send(result);
+    });
     // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
     console.log(
