@@ -2,9 +2,15 @@ require("dotenv").config();
 const express = require("express");
 const app = express();
 const port = process.env.port || 3000;
+const jwt=require('jsonwebtoken')
+const cookieParser=require("cookie-parser")
+// const cookieParser = require('cookie-parser');
 const cors = require("cors");
 app.use(express.json());
-app.use(cors());
+app.use(cors({
+  origin:'http://localhost:5173',
+  credentials:true
+}));
 
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.rdhp12d.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
@@ -27,6 +33,13 @@ async function run() {
       .db("careerCodeDB")
       .collection("applications");
 
+    //jwt token related api
+    app.post("/jwt",async(req,res)=>{
+      const user=req.body;
+      const token=jwt.sign(user,process.env.JWT_ACCESS_SECRET,{expiresIn:"1d"})
+      res.cookie("token",token,{httpOnly:true,secure:false})
+      res.send({status:true})
+    })
     //jobs api
     app.get("/jobs", async (req, res) => {
       const email = req.query.email;
@@ -46,25 +59,27 @@ async function run() {
     //   const result=await jobsCollection.find(query).toArray()
     //   res.send(result)
     // })
-      app.get("/jobs/applications",async(req,res)=>{
-      const email=req.query.email;
-      const query={hr_email:email}
-      const jobs=await jobsCollection.find(query).toArray()
+    app.get("/jobs/applications", async (req, res) => {
+      const email = req.query.email;
+      const query = { hr_email: email };
+      const jobs = await jobsCollection.find(query).toArray();
       //should use aggrigate to optimum data fatching
-      for(const job of jobs ){
-        const applicationsQuery={jobId:job._id.toString()}
-        const application_count=await applicationsCollection.countDocuments(applicationsQuery)
-        job.application_count=application_count
+      for (const job of jobs) {
+        const applicationsQuery = { jobId: job._id.toString() };
+        const application_count = await applicationsCollection.countDocuments(
+          applicationsQuery
+        );
+        job.application_count = application_count;
       }
-      res.send(jobs)
-    })
+      res.send(jobs);
+    });
     app.get("/jobs/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await jobsCollection.findOne(query);
       res.send(result);
     });
-   
+
     app.post("/jobs", async (req, res) => {
       const cursor = req.body;
       const result = await jobsCollection.insertOne(cursor);
@@ -93,7 +108,7 @@ async function run() {
       }
       res.send(result);
     });
-   
+
     app.delete("/applications/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
