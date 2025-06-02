@@ -2,15 +2,38 @@ require("dotenv").config();
 const express = require("express");
 const app = express();
 const port = process.env.port || 3000;
-const jwt=require('jsonwebtoken')
-const cookieParser=require("cookie-parser")
-// const cookieParser = require('cookie-parser');
+const jwt = require("jsonwebtoken");
+const cookieParser = require("cookie-parser");
+
 const cors = require("cors");
+
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  })
+);
 app.use(express.json());
-app.use(cors({
-  origin:'http://localhost:5173',
-  credentials:true
-}));
+app.use(cookieParser())
+
+
+
+// varify token
+const verifyToken=(req,res,next)=>{
+  const token=req.cookies.token;
+  console.log(token)
+  if(!token){
+    return res.status(401).send({message:"Unauthorized: Please log in first."})
+  }
+  jwt.verify(token,process.env.JWT_ACCESS_SECRET,(err,decoded)=>{
+    console.log(decoded)
+    if(err){
+      return res.status(401).send({message:"Unauthorized: Please log in first."})
+    }
+    req.decoded=decoded
+    next()
+  })
+}
 
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.rdhp12d.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
@@ -32,17 +55,21 @@ async function run() {
     const applicationsCollection = client
       .db("careerCodeDB")
       .collection("applications");
-
+   
     //jwt token related api
     app.post("/jwt",async(req,res)=>{
-      const user=req.body;
+      const {email}=req.body;
+      const user={email}
+      // console.log(user)
       const token=jwt.sign(user,process.env.JWT_ACCESS_SECRET,{expiresIn:"1d"})
+      // console.log(token)
       res.cookie("token",token,{httpOnly:true,secure:false})
-      res.send({status:true})
+      res.send({success:true})
     })
     //jobs api
     app.get("/jobs", async (req, res) => {
       const email = req.query.email;
+        // console.log("after the client jobs",req.cookies)
       const query = {};
       if (email) {
         query.hr_email = email;
@@ -82,20 +109,27 @@ async function run() {
 
     app.post("/jobs", async (req, res) => {
       const cursor = req.body;
+    
       const result = await jobsCollection.insertOne(cursor);
       res.send(result);
     });
     //Applicaions Api
     app.post("/applications", async (req, res) => {
       const doc = req.body;
+
       const result = await applicationsCollection.insertOne(doc);
       res.send(result);
     });
-    app.get("/applications", async (req, res) => {
+    app.get("/applications",verifyToken, async (req, res) => {
       const email = req.query.email;
+     if(email!==req.decoded.email){
+      return res.status(403).send({message: "Forbidden: You don't have access to this page." })
+     }
       const query = {
         applicant: email,
       };
+
+      // console.log("after the client", req.cookies);
       const cursor = applicationsCollection.find(query);
       const result = await cursor.toArray();
 
