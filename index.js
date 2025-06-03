@@ -21,12 +21,12 @@ app.use(cookieParser())
 // varify token
 const verifyToken=(req,res,next)=>{
   const token=req.cookies.token;
-  console.log(token)
+  // console.log(token)
   if(!token){
     return res.status(401).send({message:"Unauthorized: Please log in first."})
   }
   jwt.verify(token,process.env.JWT_ACCESS_SECRET,(err,decoded)=>{
-    console.log(decoded)
+    // console.log(decoded)
     if(err){
       return res.status(401).send({message:"Unauthorized: Please log in first."})
     }
